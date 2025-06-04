@@ -34,7 +34,7 @@ Clique em **"Teste (100 clientes)"** para preencher automaticamente a fila com n
 
 ## 🖼️ Captura de Tela
 
-> Você pode adicionar uma imagem aqui com a interface do projeto.
+![alt text](image.png)
 
 ## 🚀 Tecnologias
 
