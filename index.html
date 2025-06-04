@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fila de Banco</title>
+  <style>
+    /* Estilos serão colocados inline para facilitar */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Fila de Banco</h1>
+    
+    <div class="input-group">
+      <input type="text" id="nome" placeholder="Nome do cliente">
+      <label>
+        <input type="checkbox" id="preferencial">
+        Cliente preferencial
+      </label>
+    </div>
+
+    <div class="buttons">
+      <button id="btn-adicionar">Adicionar</button>
+      <button id="btn-atender">Atender Próximo</button>
+      <button id="btn-limpar">Limpar Fila</button>
+      <button id="btn-exportar">Exportar Dados</button>
+      <button id="theme-toggle">🌙 Modo Noturno</button>
+      <button id="btn-teste">Teste (100 clientes)</button>
+
+    </div>
+
+    <div class="info">
+      <p><strong>Limite da fila:</strong> <span id="limite-fila">102</span></p>
+      <p><strong>Total na fila:</strong> <span id="total-fila">0</span></p>
+      <p><strong>Tempo estimado:</strong> <span id="tempo-espera">0</span> min</p>
+    </div>
+
+    <h2>Fila de Atendimento:</h2>
+    <ul id="fila"></ul>
+
+    <h2>Histórico de Atendidos:</h2>
+    <ul id="historico"></ul>
+  </div>
+
+  <script>
+    // Classe FilaBanco
+    class FilaBanco {
+      constructor() {
+        this.fila = [];
+        this.historico = [];
+        this.limite = 102;
+        this.carregar();
+      }
+
+      adicionar(nome, preferencial) {
+        if (this.fila.length >= this.limite) {
+          alert(`Fila cheia! Limite: ${this.limite}`);
+          return false;
+        }
+
+        const cliente = {
+          nome,
+          preferencial,
+          horario: new Date().toLocaleTimeString(),
+          id: Date.now()
+        };
+
+        this.fila.push(cliente);
+        this.salvar();
+        this.atualizarInterface();
+        return true;
+      }
+
+      atender() {
+        if (this.fila.length === 0) {
+          alert("Fila vazia!");
+          return null;
+        }
+
+        // Encontra o primeiro preferencial
+        const indexPref = this.fila.findIndex(c => c.preferencial);
+        const index = indexPref !== -1 ? indexPref : 0;
+        const atendido = this.fila.splice(index, 1)[0];
+        
+        this.historico.push(atendido);
+        this.salvar();
+        this.atualizarInterface();
+        
+        return atendido;
+      }
+
+      limpar() {
+        this.fila = [];
+        this.salvar();
+        this.atualizarInterface();
+      }
+
+      carregar() {
+        const dados = localStorage.getItem('filaBanco');
+        if (dados) {
+          const { fila, historico, limite } = JSON.parse(dados);
+          this.fila = fila || [];
+          this.historico = historico || [];
+          this.limite = limite || 102;
+        }
+      }
+
+      salvar() {
+        localStorage.setItem('filaBanco', JSON.stringify({
+          fila: this.fila,
+          historico: this.historico,
+          limite: this.limite
+        }));
+      }
+
+      atualizarInterface() {
+        const filaElement = document.getElementById('fila');
+        const historicoElement = document.getElementById('historico');
+        
+        // Fila atual
+        filaElement.innerHTML = this.fila.map((cliente, i) => `
+          <li class="${cliente.preferencial ? 'preferencial' : ''}">
+            ${i+1}° - ${cliente.nome} (${cliente.preferencial ? 'Preferencial' : 'Normal'}) - ${cliente.horario}
+          </li>
+        `).join('');
+        
+        // Histórico (últimos 10)
+        historicoElement.innerHTML = this.historico.slice(-10).reverse().map(cliente => `
+          <li class="historico-item ${cliente.preferencial ? 'preferencial' : ''}">
+            ${cliente.nome} - ${cliente.horario}
+          </li>
+        `).join('');
+        
+        // Atualiza contadores
+        document.getElementById('total-fila').textContent = this.fila.length;
+        document.getElementById('tempo-espera').textContent = this.fila.length * 2;
+      }
+    }
+
+    // Inicialização
+    const fila = new FilaBanco();
+
+    // Event Listeners
+    document.getElementById('btn-adicionar').addEventListener('click', () => {
+      const nome = document.getElementById('nome').value.trim();
+      const preferencial = document.getElementById('preferencial').checked;
+      
+      if (nome) {
+        fila.adicionar(nome, preferencial);
+        document.getElementById('nome').value = '';
+        document.getElementById('preferencial').checked = false;
+      }
+    });
+
+    document.getElementById('btn-atender').addEventListener('click', () => {
+      fila.atender();
+    });
+
+    document.getElementById('btn-limpar').addEventListener('click', () => {
+      if (confirm('Limpar toda a fila?')) {
+        fila.limpar();
+      }
+    });
+
+    document.getElementById('btn-exportar').addEventListener('click', () => {
+      const data = JSON.stringify({
+        fila: fila.fila,
+        historico: fila.historico,
+        limite: fila.limite
+      }, null, 2);
+      
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fila-banco-${new Date().toLocaleDateString()}.json`;
+      a.click();
+    });
+
+    // Modo Noturno
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isDark);
+      document.getElementById('theme-toggle').textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Noturno';
+    });
+
+    // Verificar modo noturno ao carregar
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+      document.getElementById('theme-toggle').textContent = '☀️ Modo Claro';
+    }
+
+    // Estilos CSS dinâmicos
+    const style = document.createElement('style');
+    style.textContent = `
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+        transition: all 0.3s;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      }
+
+      h1, h2 {
+        color: #2c3e50;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+      }
+
+      .input-group {
+        margin-bottom: 15px;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      button {
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      #btn-adicionar { background-color: #27ae60; color: white; }
+      #btn-atender { background-color: #e74c3c; color: white; }
+      #btn-limpar { background-color: #7f8c8d; color: white; }
+      #btn-exportar { background-color: #3498db; color: white; }
+      #theme-toggle { background-color: #34495e; color: white; }
+
+      .info {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      li {
+        padding: 10px;
+        margin-bottom: 8px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #3498db;
+        border-radius: 4px;
+      }
+
+      .preferencial {
+        border-left-color: #f39c12;
+        background-color: #fff3e0;
+      }
+
+      .historico-item {
+        opacity: 0.8;
+        font-size: 0.9em;
+      }
+
+      /* Modo Noturno */
+      body.dark-mode {
+        background-color: #121212;
+        color: #e0e0e0;
+      }
+
+      body.dark-mode .container {
+        background-color: #1e1e1e;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      }
+
+      body.dark-mode h1, 
+      body.dark-mode h2 {
+        color: #bb86fc;
+        border-bottom-color: #333;
+      }
+
+      body.dark-mode input[type="text"] {
+        background-color: #333;
+        color: white;
+        border-color: #444;
+      }
+
+      body.dark-mode .info,
+      body.dark-mode li {
+        background-color: #252525;
+      }
+
+      body.dark-mode .preferencial {
+        background-color: #332900;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Atualizar interface inicial
+    fila.atualizarInterface();
+  
+    document.getElementById('btn-teste').addEventListener('click', () => {
+      const nomesExemplo = ['Ana', 'Carlos', 'Beatriz', 'Lucas', 'Fernanda', 'João', 'Patrícia', 'Marcos', 'Juliana', 'Mateus'];
+
+      for (let i = 0; i < 100; i++) {
+        const nomeAleatorio = nomesExemplo[Math.floor(Math.random() * nomesExemplo.length)] + ' #' + (Math.floor(Math.random() * 1000));
+        const preferencial = Math.random() < 0.3;
+        fila.adicionar(nomeAleatorio, preferencial);
+      }
+    });
+
+</script>
+</body>
+</html>
